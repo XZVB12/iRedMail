@@ -1,3 +1,9 @@
+iRedMail-1.2.1:
+    * Switch self-signed ssl cert key length to 4096.
+    * Swith DKIM key length to 2048.
+    * Updated packages:
+        + Roundcube webmail -> 1.4.4. it includes few security fixes.
+
 iRedMail-1.2:
     * Supports new distribution release:
         + CentOS 8

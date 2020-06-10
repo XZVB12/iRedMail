@@ -188,16 +188,20 @@ EOF
     # Copy rc script file
     if [ X"${USE_SYSTEMD}" == X'YES' ]; then
         if [ X"${DISTRO}" == X'RHEL' ]; then
-            if [ X"${DISTRO_VERSION}" == X'8' ]; then
+            if [ X"${DISTRO_VERSION}" == X'7' ]; then
+                perl -pi -e 's#(^plugins.*)python,(.*)#${1}$ENV{UWSGI_PY3_PLUGIN_NAME},${2}#g' ${MLMMJADMIN_ROOT_DIR_SYMBOL_LINK}/rc_scripts/uwsgi/rhel.ini
+            elif [ X"${DISTRO_VERSION}" == X'8' ]; then
                 # Fix path to uwsgi.
-                perl -pi -e 's#/usr/sbin/uwsgi#/usr/bin/uwsgi#g' ${MLMMJADMIN_ROOT_DIR_SYMBOL_LINK}/rc_scripts/systemd/rhel.service
+                perl -pi -e 's#/usr/sbin/uwsgi#$ENV{CMD_UWSGI_PY3}#g' ${MLMMJADMIN_ROOT_DIR_SYMBOL_LINK}/rc_scripts/systemd/rhel.service
                 # Disable plugins. They're all builtin.
                 perl -pi -e 's/^(plugins.*)/#${1}/g' ${MLMMJADMIN_ROOT_DIR_SYMBOL_LINK}/rc_scripts/uwsgi/rhel.ini
             fi
 
             cp -f ${MLMMJADMIN_ROOT_DIR_SYMBOL_LINK}/rc_scripts/systemd/rhel.service ${SYSTEMD_SERVICE_DIR}/${MLMMJADMIN_RC_SCRIPT_NAME}.service >> ${INSTALL_LOG} 2>&1
             chmod 0644 ${SYSTEMD_SERVICE_DIR}/${MLMMJADMIN_RC_SCRIPT_NAME}.service
+
         elif [ X"${DISTRO}" == X'DEBIAN' -o X"${DISTRO}" == X'UBUNTU' ]; then
+            perl -pi -e 's#(^plugins.*)python,(.*)#${1}$ENV{UWSGI_PY3_PLUGIN_NAME},${2}#g' ${MLMMJADMIN_ROOT_DIR_SYMBOL_LINK}/rc_scripts/uwsgi/debian.ini
             cp -f ${MLMMJADMIN_ROOT_DIR_SYMBOL_LINK}/rc_scripts/systemd/debian.service ${SYSTEMD_SERVICE_DIR}/${MLMMJADMIN_RC_SCRIPT_NAME}.service >> ${INSTALL_LOG} 2>&1
             chmod 0644 ${SYSTEMD_SERVICE_DIR}/${MLMMJADMIN_RC_SCRIPT_NAME}.service
         fi

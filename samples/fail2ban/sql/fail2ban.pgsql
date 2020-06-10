@@ -14,6 +14,14 @@ CREATE TABLE banned (
     -- The server hostname which the ban/unban happens
     hostname VARCHAR(255) NOT NULL DEFAULT '',
     country VARCHAR(255) NOT NULL DEFAULT '',
+    -- reverse DNS name of banned IP address.
+    rdns VARCHAR(255) NOT NULL DEFAULT '',
+    -- number of times the failure occurred in the log file.
+    -- we use Fail2ban action tag `ipjailfailures` here.
+    failures SMALLINT NOT NULL DEFAULT 0,
+    -- matched log lines.
+    -- we use Fail2ban action tag `ipjailmatches` here.
+    loglines TEXT,
     -- When the ban happens
     timestamp TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (CURRENT_TIMESTAMP(0) AT TIME ZONE 'UTC'),
     -- if `remove=1`, `ip` will be removed by cron job.
@@ -26,3 +34,4 @@ CREATE INDEX idx_banned_hostname ON banned (hostname);
 CREATE INDEX idx_banned_country ON banned (country);
 CREATE INDEX idx_banned_timestamp ON banned (timestamp);
 CREATE INDEX idx_banned_remove ON banned (remove);
+CREATE INDEX idx_banned_rdns ON banned (rdns);

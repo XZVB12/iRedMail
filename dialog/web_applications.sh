@@ -36,6 +36,11 @@ if [ X"${DISABLE_WEB_SERVER}" != X'YES' ]; then
     if [ X"${DISTRO}" == X'OPENBSD' ]; then
         # OpenBSD doesn't have 'libuuid' which required by netdata
         export DIALOG_SELECTABLE_NETDATA='NO'
+    elif [ X"${DISTRO}" == X'FREEBSD' ]; then
+        # netdata-1.22.1 doesn't work with libressl, it's marked as broken in
+        # ports tree, but development edition works fine.
+        # Have to wait for next release.
+        export DIALOG_SELECTABLE_NETDATA='NO'
     fi
 fi
 
@@ -46,12 +51,12 @@ fi
 
 # Roundcube
 if [ X"${DIALOG_SELECTABLE_ROUNDCUBE}" == X'YES' ]; then
-    LIST_OF_OPTIONAL_COMPONENTS="${LIST_OF_OPTIONAL_COMPONENTS} Roundcubemail Popular_webmail_built_with_PHP_and_AJAX on"
+    LIST_OF_OPTIONAL_COMPONENTS="${LIST_OF_OPTIONAL_COMPONENTS} Roundcubemail Fast_and_lightweight_webmail on"
 fi
 
 # SOGo
 if [ X"${DIALOG_SELECTABLE_SOGO}" == X'YES' ]; then
-    LIST_OF_OPTIONAL_COMPONENTS="${LIST_OF_OPTIONAL_COMPONENTS} SOGo Webmail,_Calendar,_Address_book off"
+    LIST_OF_OPTIONAL_COMPONENTS="${LIST_OF_OPTIONAL_COMPONENTS} SOGo Webmail,_Calendar,_Address_book,_ActiveSync off"
 fi
 
 # netdata

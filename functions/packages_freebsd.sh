@@ -35,13 +35,11 @@ install_all()
 
     # Preferred package versions. Don't forget to update DEFAULT_VERSIONS below.
     export PREFERRED_OPENLDAP_VER='24'
-    export PREFERRED_MARIADB_VER='104'
+    export PREFERRED_MARIADB_VER='105'
     export PREFERRED_BDB_VER='5'
     export PREFERRED_PHP_VER='74'
-
-    if [ X"${BACKEND_ORIG}" == X'MARIADB' ]; then
-        export PREFERRED_MYSQL_VER='55m'
-    fi
+    export PREFERRED_PY3_VER='3.8'
+    export PREFERRED_PY_FLAVOR='py38'
 
     if [ X"${WEB_SERVER}" == X'NGINX' ]; then
         export IREDMAIL_USE_PHP='YES'
@@ -51,7 +49,7 @@ install_all()
     freebsd_make_conf_add 'WANT_OPENLDAP_SASL' "YES"
     freebsd_make_conf_add 'WANT_PGSQL_VER' "${PGSQL_VERSION}"
     freebsd_make_conf_add 'WANT_BDB_VER' "${PREFERRED_BDB_VER}"
-    freebsd_make_conf_add 'DEFAULT_VERSIONS' "ssl=libressl python=2.7 python2=2.7 python3=3.8 pgsql=${PGSQL_VERSION} php=7.4 mysql=10.4m"
+    freebsd_make_conf_add 'DEFAULT_VERSIONS' "ssl=libressl python=${PREFERRED_PY3_VER} python3=${PREFERRED_PY3_VER} pgsql=${PGSQL_VERSION} php=7.4 mysql=10.5m perl5=5.32"
 
     freebsd_make_conf_plus_option 'OPTIONS_SET' 'SASL'
     freebsd_make_conf_plus_option 'OPTIONS_UNSET' 'X11'
@@ -68,7 +66,6 @@ install_all()
         databases_postgresql${PGSQL_VERSION}-server \
         databases_mariadb${PREFERRED_MARIADB_VER}-server \
         databases_mariadb${PREFERRED_MARIADB_VER}-client \
-        databases_py-MySQLdb \
         databases_py-sqlalchemy10 \
         devel_cmake \
         devel_apr1 \
@@ -81,14 +78,13 @@ install_all()
         dns_py-dnspython \
         ftp_curl \
         mail_spamassassin \
-        lang_perl5.20 \
+        lang_perl5.32 \
         lang_php${PREFERRED_PHP_VER} \
         lang_php${PREFERRED_PHP_VER}-extensions \
         www_mod_php${PREFERRED_PHP_VER} \
         graphics_php${PREFERRED_PHP_VER}-gd \
         graphics_cairo \
         www_pecl-APC \
-        lang_python27 \
         mail_dovecot \
         mail_postfix \
         mail_roundcube \
@@ -97,6 +93,7 @@ install_all()
         net_openldap${PREFERRED_OPENLDAP_VER}-server \
         net_openslp \
         net_py-ldap \
+        net-mgmt_netdata \
         security_amavisd-new \
         security_ca_root_nss \
         security_clamav \
@@ -106,6 +103,7 @@ install_all()
         security_p5-Authen-SASL \
         security_p5-IO-Socket-SSL \
         www_nginx \
+        www_uwsgi \
         www_sogo4; do
         mkdir -p /var/db/ports/${p} >> ${INSTALL_LOG} 2>&1
     done
@@ -161,7 +159,7 @@ OPTIONS_FILE_SET+=SCRAM
 EOF
 
     # Perl. REQUIRED.
-    cat > /var/db/ports/lang_perl5.20/options <<EOF
+    cat > /var/db/ports/lang_perl5.32/options <<EOF
 OPTIONS_FILE_UNSET+=DEBUG
 OPTIONS_FILE_UNSET+=GDBM
 OPTIONS_FILE_SET+=MULTIPLICITY
@@ -243,18 +241,18 @@ EOF
     # PostgreSQL
     cat > /var/db/ports/databases_postgresql${PGSQL_VERSION}-server/options <<EOF
 OPTIONS_FILE_UNSET+=DEBUG
+OPTIONS_FILE_UNSET+=DOCS
 OPTIONS_FILE_UNSET+=DTRACE
 OPTIONS_FILE_UNSET+=GSSAPI
-OPTIONS_FILE_UNSET+=ICU
 OPTIONS_FILE_SET+=INTDATE
 OPTIONS_FILE_UNSET+=LDAP
+OPTIONS_FILE_SET+=LLVM
 OPTIONS_FILE_SET+=NLS
 OPTIONS_FILE_UNSET+=OPTIMIZED_CFLAGS
 OPTIONS_FILE_UNSET+=PAM
 OPTIONS_FILE_SET+=SSL
 OPTIONS_FILE_SET+=TZDATA
-OPTIONS_FILE_UNSET+=MIT_KRB5
-OPTIONS_FILE_UNSET+=HEIMDAL_KRB5
+OPTIONS_FILE_UNSET+=XML
 EOF
 
     cat > /var/db/ports/databases_postgresql${PGSQL_VERSION}-client/options <<EOF
@@ -271,8 +269,8 @@ EOF
 
     cat > /var/db/ports/databases_mariadb${PREFERRED_MARIADB_VER}-server/options <<EOF
 OPTIONS_FILE_SET+=CONNECT_EXTRA
-OPTIONS_FILE_SET+=DOCS
-OPTIONS_FILE_SET+=WSREP
+OPTIONS_FILE_UNSET+=DOCS
+OPTIONS_FILE_UNSET+=WSREP
 OPTIONS_FILE_UNSET+=GSSAPI_BASE
 OPTIONS_FILE_UNSET+=GSSAPI_HEIMDAL
 OPTIONS_FILE_UNSET+=GSSAPI_MIT
@@ -285,8 +283,8 @@ OPTIONS_FILE_SET+=INNOBASE
 OPTIONS_FILE_UNSET+=MROONGA
 OPTIONS_FILE_UNSET+=OQGRAPH
 OPTIONS_FILE_UNSET+=ROCKSDB
-OPTIONS_FILE_SET+=SPHINX
-OPTIONS_FILE_SET+=SPIDER
+OPTIONS_FILE_UNSET+=SPHINX
+OPTIONS_FILE_UNSET+=SPIDER
 OPTIONS_FILE_UNSET+=TOKUDB
 OPTIONS_FILE_UNSET+=ZMQ
 OPTIONS_FILE_UNSET+=MSGPACK
@@ -301,7 +299,7 @@ EOF
 
     # Install Python and some modules first, otherwise they may be installed as
     # package dependencies and cause port installation conflict.
-    ALL_PORTS="${ALL_PORTS} devel/py-Jinja2 net/py-netifaces security/py-bcrypt"
+    ALL_PORTS="${ALL_PORTS} devel/py-Jinja2 net/py-netifaces security/py-bcrypt www/py-requests"
 
     if [ X"${BACKEND}" == X'OPENLDAP' ]; then
         ALL_PORTS="${ALL_PORTS} net/openldap${PREFERRED_OPENLDAP_VER}-sasl-client net/openldap${PREFERRED_OPENLDAP_VER}-server"
@@ -321,8 +319,8 @@ EOF
 
     # Dovecot.
     cat > /var/db/ports/mail_dovecot/options <<EOF
-OPTIONS_FILE_SET+=DOCS
-OPTIONS_FILE_SET+=EXAMPLES
+OPTIONS_FILE_UNSET+=DOCS
+OPTIONS_FILE_UNSET+=EXAMPLES
 OPTIONS_FILE_UNSET+=GC
 OPTIONS_FILE_SET+=KQUEUE
 OPTIONS_FILE_SET+=LIBWRAP
@@ -437,9 +435,8 @@ OPTIONS_FILE_UNSET+=SSHFP
 EOF
 
     cat > /var/db/ports/dns_py-dnspython/options <<EOF
-OPTIONS_FILE_UNSET+=DOCS
 OPTIONS_FILE_UNSET+=EXAMPLES
-OPTIONS_FILE_SET+=PYCRYPTO
+OPTIONS_FILE_SET+=PYCRYPTODOME
 EOF
 
     # SpamAssassin. REQUIRED.
@@ -527,7 +524,7 @@ EOF
     cat > /var/db/ports/mail_postfix/options <<EOF
 OPTIONS_FILE_SET+=BDB
 OPTIONS_FILE_SET+=CDB
-OPTIONS_FILE_SET+=DOCS
+OPTIONS_FILE_UNSET+=DOCS
 OPTIONS_FILE_UNSET+=INST_BASE
 OPTIONS_FILE_UNSET+=LDAP
 OPTIONS_FILE_UNSET+=LDAP_SASL
@@ -539,11 +536,9 @@ OPTIONS_FILE_UNSET+=PGSQL
 OPTIONS_FILE_SET+=SASL
 OPTIONS_FILE_UNSET+=SPF
 OPTIONS_FILE_UNSET+=SQLITE
-OPTIONS_FILE_SET+=TEST
+OPTIONS_FILE_UNSET+=TEST
 OPTIONS_FILE_SET+=TLS
 OPTIONS_FILE_UNSET+=VDA
-OPTIONS_FILE_UNSET+=DOVECOT
-OPTIONS_FILE_SET+=DOVECOT2
 OPTIONS_FILE_UNSET+=SASLKRB5
 OPTIONS_FILE_UNSET+=SASLKMIT
 EOF
@@ -588,23 +583,10 @@ EOF
     fi
     rm -f /var/db/ports/devel_apr1/options${SED_EXTENSION} &>/dev/null
 
-    # Python v2.7
-    cat > /var/db/ports/lang_python27/options <<EOF
-OPTIONS_FILE_UNSET+=DEBUG
-OPTIONS_FILE_SET+=IPV6
-OPTIONS_FILE_SET+=LIBFFI
-OPTIONS_FILE_SET+=NLS
-OPTIONS_FILE_SET+=PYMALLOC
-OPTIONS_FILE_UNSET+=SEM
-OPTIONS_FILE_SET+=THREADS
-OPTIONS_FILE_UNSET+=UCS2
-OPTIONS_FILE_SET+=UCS4
-EOF
-
     # Nginx
     cat > /var/db/ports/www_nginx/options <<EOF
 OPTIONS_FILE_SET+=DSO
-OPTIONS_FILE_SET+=DEBUG
+OPTIONS_FILE_UNSET+=DEBUG
 OPTIONS_FILE_SET+=DEBUGLOG
 OPTIONS_FILE_SET+=FILE_AIO
 OPTIONS_FILE_SET+=IPV6
@@ -710,6 +692,15 @@ EOF
         ALL_PORTS="${ALL_PORTS} www/nginx www/uwsgi"
     fi
 
+    cat > /var/db/ports/www_uwsgi/options <<EOF
+OPTIONS_FILE_UNSET+=DEBUG
+OPTIONS_FILE_SET+=JSON
+OPTIONS_FILE_SET+=PCRE
+OPTIONS_FILE_SET+=SSL
+OPTIONS_FILE_SET+=XML
+OPTIONS_FILE_UNSET+=PSGI
+EOF
+
     # PHP. REQUIRED.
     cat > /var/db/ports/lang_php${PREFERRED_PHP_VER}/options <<EOF
 OPTIONS_FILE_SET+=CLI
@@ -746,8 +737,6 @@ OPTIONS_FILE_UNSET+=INTERBASE
 OPTIONS_FILE_SET+=JSON
 OPTIONS_FILE_UNSET+=LDAP
 OPTIONS_FILE_SET+=MBSTRING
-OPTIONS_FILE_SET+=MCRYPT
-OPTIONS_FILE_UNSET+=MSSQL
 OPTIONS_FILE_UNSET+=MYSQL
 OPTIONS_FILE_UNSET+=MYSQLI
 OPTIONS_FILE_UNSET+=ODBC
@@ -881,9 +870,6 @@ EOF
     # mlmmj: mailing list manager
     ALL_PORTS="${ALL_PORTS} mail/mlmmj"
 
-    # dependencies for mlmmjadmin: a RESTful API server used to manage mlmmj
-    #ALL_PORTS="${ALL_PORTS} www/py-requests"
-
     # Roundcube.
     cat > /var/db/ports/mail_roundcube/options <<EOF
 OPTIONS_FILE_UNSET+=DOCS
@@ -906,12 +892,6 @@ EOF
         ${CMD_SED} -e 's#OPTIONS_FILE_UNSET+=PGSQL#OPTIONS_FILE_SET+=PGSQL#' /var/db/ports/mail_roundcube/options
     fi
     rm -f /var/db/ports/mail_roundcube/options${SED_EXTENSION} &>/dev/null
-
-    # Python-MySQLdb
-    cat > /var/db/ports/databases_py-MySQLdb/options <<EOF
-OPTIONS_FILE_UNSET+=DOCS
-OPTIONS_FILE_SET+=MYSQLCLIENT_R
-EOF
 
     cat > /var/db/ports/devel_py-Jinja2/options <<EOF
 OPTIONS_FILE_SET+=BABEL
@@ -954,9 +934,9 @@ EOF
 
     # Python database interfaces
     if [ X"${BACKEND}" == X'OPENLDAP' ]; then
-        ALL_PORTS="${ALL_PORTS} net/py-ldap databases/py-MySQLdb"
+        ALL_PORTS="${ALL_PORTS} net/py-ldap databases/py-pymysql"
     elif [ X"${BACKEND}" == X'MYSQL' ]; then
-        ALL_PORTS="${ALL_PORTS} databases/py-MySQLdb"
+        ALL_PORTS="${ALL_PORTS} databases/py-pymysql"
     elif [ X"${BACKEND}" == X'PGSQL' ]; then
         ALL_PORTS="${ALL_PORTS} databases/py-psycopg2"
     fi
@@ -984,7 +964,7 @@ EOF
     ALL_PORTS="${ALL_PORTS} dns/py-dnspython"
 
     # iRedAdmin: dependencies. webpy, Jinja2, bcrypt
-    ALL_PORTS="${ALL_PORTS} www/webpy ftp/py-pycurl"
+    ALL_PORTS="${ALL_PORTS} www/webpy devel/py-simplejson"
 
     # Fail2ban.
     #if [ X"${USE_FAIL2BAN}" == X'YES' ]; then
@@ -994,6 +974,16 @@ EOF
 
     cat > /var/db/ports/net_py-ldap/options <<EOF
 OPTIONS_FILE_SET+=SASL
+EOF
+
+    cat > /var/db/ports/net-mgmt_netdata/options <<EOF
+_FILE_COMPLETE_OPTIONS_LIST=CLOUD CUPS DBENGINE FREEIPMI GOPLUGIN LTO
+OPTIONS_FILE_UNSET+=CLOUD
+OPTIONS_FILE_UNSET+=CUPS
+OPTIONS_FILE_SET+=DBENGINE
+OPTIONS_FILE_UNSET+=FREEIPMI
+OPTIONS_FILE_SET+=GOPLUGIN
+OPTIONS_FILE_SET+=LTO
 EOF
 
     if [ X"${USE_NETDATA}" == X'YES' ]; then
@@ -1006,7 +996,7 @@ EOF
     fetch_all_src_tarballs()
     {
         # Fetch all source tarballs.
-        ECHO_INFO "Ports tree: ${PORT_WRKDIRPREFIX}"
+        ECHO_INFO "Ports tree: ${PORT_WORKDIRPREFIX}"
         ECHO_INFO "Fetching all distfiles for required ports (make fetch-recursive)"
 
         for i in ${ALL_PORTS}; do
@@ -1015,7 +1005,7 @@ EOF
                 status="\$status_fetch_port_$portname"
                 if [ X"$(eval echo ${status})" != X"DONE" ]; then
                     ECHO_INFO "Fetching all distfiles for port: ${i}"
-                    cd ${PORT_WRKDIRPREFIX}/${i}
+                    cd ${PORT_WORKDIRPREFIX}/${i}
 
                     # Get time as a UNIX timestamp (seconds elapsed since Jan 1, 1970 0:00 UTC)
                     port_start_time="$(date +%s)"
@@ -1038,45 +1028,71 @@ EOF
         echo "export status_fetch_all_src_tarballs='DONE'" >> ${STATUS_FILE}
     }
 
+    install_port() {
+        # Usage: install_port <port> [make_flags]
+        _port="${1}"
+        shift 1
+        _flags="$@"
+
+        start_time="$(date +%s)"
+        if [ X"${_port}" != X'' ]; then
+            # Remove special characters in port name: -, /, '.'.
+            _portname="$( echo ${_port} | tr '/' '_' | tr -d '[-\.]')"
+
+            _status="\$status_install_port_${IREDMAIL_PORT_PKG_NAME_PREFIX}${_portname}"
+            _status_name="$(echo ${_status} | tr -d '$')"
+            if [ X"$(eval echo ${_status})" != X"DONE" ]; then
+                _port_dir="${PORT_WORKDIRPREFIX}/${_port}"
+                if [[ ! -d ${_port_dir} ]]; then
+                    echo "Port directory ${_port_dir} doesn't exist."
+                    exit 255
+                fi
+
+                cd ${_port_dir}
+                ECHO_INFO "Installing port: ${_port} ($(date '+%Y-%m-%d %H:%M:%S')) ..."
+                echo "export ${_status_name}='processing'" >> ${STATUS_FILE}
+
+                #if echo "${_port}" | grep '/py' &>/dev/null; then
+                #    # Some ports use zip archive instead of default `.tar.gz`.
+                #    if grep '^USES' ${_port_dir}/Makefile | grep '\<zip\>' &>/dev/null; then
+                #        _flags="${_flags} USES+=zip"
+                #    fi
+                #fi
+
+                # Get time as a UNIX timestamp (seconds elapsed since Jan 1, 1970 0:00 UTC)
+                port_start_time="$(date +%s)"
+
+                # Clean up and compile
+                make clean
+                make \
+                    DISABLE_MAKE_JOBS=yes \
+                    PY_FLAVOR=${PREFERRED_PY_FLAVOR} \
+                    ${_flags} \
+                    install clean
+
+                if [ X"$?" == X"0" ]; then
+                    # Log used time
+                    used_time="$(($(date +%s)-port_start_time))"
+
+                    echo "export ${_status_name}='DONE'  # ${used_time} seconds, ~= $((used_time/60)) minute(s)." >> ${STATUS_FILE}
+                else
+                    ECHO_ERROR "Port was not successfully installed, please fix it manually and then re-execute this script."
+                    exit 255
+                fi
+            else
+                ECHO_SKIP "Installing port: ${_port}."
+            fi
+        fi
+    }
+
     # Install all packages.
     install_all_ports()
     {
-        ECHO_INFO "Install packages."
+        ECHO_INFO "All ports: ${ALL_PORTS}"
 
         start_time="$(date +%s)"
-        for i in ${ALL_PORTS}; do
-            if [ X"${i}" != X'' ]; then
-                # Remove special characters in port name: -, /, '.'.
-                portname="$( echo ${i} | tr '/' '_' | tr -d '[-\.]')"
-
-                status="\$status_install_port_$portname"
-                if [ X"$(eval echo ${status})" != X"DONE" ]; then
-                    cd ${PORT_WRKDIRPREFIX}/${i} && \
-                        ECHO_INFO "Installing port: ${i} ($(date '+%Y-%m-%d %H:%M:%S')) ..."
-                        echo "export status_install_port_${portname}='processing'" >> ${STATUS_FILE}
-
-                        # Get time as a UNIX timestamp (seconds elapsed since Jan 1, 1970 0:00 UTC)
-                        port_start_time="$(date +%s)"
-
-                        # Clean up and compile
-                        make clean && make DISABLE_MAKE_JOBS=yes install clean
-
-                        if [ X"$?" == X"0" ]; then
-                            # Log used time
-                            used_time="$(($(date +%s)-port_start_time))"
-
-                            # Recent all used time
-                            recent_all_used_time="$(($(date +%s)-start_time))"
-
-                            echo "export status_install_port_${portname}='DONE'  # ${used_time} seconds, ~= $((used_time/60)) minute(s). Recent ~= $((recent_all_used_time/60)) minutes" >> ${STATUS_FILE}
-                        else
-                            ECHO_ERROR "Port was not successfully installed, please fix it manually and then re-execute this script."
-                            exit 255
-                        fi
-                else
-                    ECHO_SKIP "Installing port: ${i}."
-                fi
-            fi
+        for _port in ${ALL_PORTS}; do
+            install_port ${_port}
         done
 
         # Log and print used time
@@ -1089,9 +1105,8 @@ EOF
     {
         ECHO_DEBUG "Post-install cleanup."
 
-        ECHO_DEBUG "Create symbol links for python2/3."
-        ln -sf /usr/local/bin/python2.7 /usr/local/bin/python2
-        ln -sf /usr/local/bin/python3.8 /usr/local/bin/python3
+        ECHO_DEBUG "Create symbol links for python3."
+        ln -sf /usr/local/bin/python${PREFERRED_PY3_VER} /usr/local/bin/python3
 
         # Create syslog.d and logrotate.d
         mkdir -p ${SYSLOG_CONF_DIR} >> ${INSTALL_LOG} 2>&1

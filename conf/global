@@ -22,7 +22,7 @@
 
 export PROG_NAME='iRedMail'
 export PROG_NAME_LOWERCASE='iredmail'
-export PROG_VERSION='1.2.2'
+export PROG_VERSION='1.3.1'
 
 export DATE="$(/bin/date +%Y.%m.%d.%H.%M.%S)"
 
@@ -212,9 +212,7 @@ export SHELL_NOLOGIN='/sbin/nologin'
 export SHELL_BASH='/bin/bash'
 
 # Path to some programs
-export CMD_PYTHON2='python2'
 export CMD_PYTHON3='python3'
-export CMD_PIP2='pip2'
 export CMD_PIP3='pip3'
 
 # Default password scheme for SQL backends.
@@ -233,6 +231,12 @@ export UNSUPPORTED_RELEASE='NO'
 
 # Detect distro name and release version.
 if [ X"${KERNEL_NAME}" == X'LINUX' ]; then
+    export DISTRO_VERSION=$(awk -F'"' '/^VERSION_ID=/ {print $2}' /etc/os-release)
+
+    # Debian: 9: stretch, 10: buster
+    # Ubuntu: 18.04: bionic, 20.04: focal
+    export DISTRO_CODENAME=$(awk -F'=' '/^VERSION_CODENAME=/ {print $2}' /etc/os-release)
+
     # Directory of RC scripts.
     export DIR_RC_SCRIPTS='/etc/init.d'
 
@@ -241,74 +245,35 @@ if [ X"${KERNEL_NAME}" == X'LINUX' ]; then
         export DISTRO='RHEL'
 
         # Get distribution version
-        if grep '\ 7\.' /etc/redhat-release &>/dev/null; then
-            # version 7.x
-            export DISTRO_VERSION='7'
-        elif grep '\ 8\.' /etc/redhat-release &>/dev/null; then
-            # version 8.x
-            export DISTRO_VERSION='8'
-        else
+        if [[ X"${DISTRO_VERSION}" != X'7' ]] && [[ X"${DISTRO_VERSION}" != X'8' ]]; then
             export UNSUPPORTED_RELEASE='YES'
         fi
 
         # Get distribution name as DISTRO_CODENAME
-        if grep '^Red' /etc/redhat-release &>/dev/null; then
+        if [ -x /etc/centos-release ]; then
+            export DISTRO_CODENAME='centos'
+        else
             # RHEL
             export DISTRO_CODENAME='rhel'
-        elif grep '^CentOS' /etc/redhat-release &>/dev/null; then
-            # CentOS
-            export DISTRO_CODENAME='centos'
-        elif grep '^Scientific' /etc/redhat-release &>/dev/null; then
-            # Scientific Linux
-            export DISTRO_CODENAME='scientific'
-        else
-            export UNSUPPORTED_RELEASE='YES'
         fi
 
         if [ X"${DISTRO_VERSION}" == X'8' ]; then
-            # CentOS 8: Installed with pip2.
-            export CMD_UWSGI='/usr/bin/uwsgi'
             # Installed with pip3.
-            export CMD_UWSGI_PY3='/usr/local/bin/uwsgi'
+            export CMD_UWSGI='/usr/local/bin/uwsgi'
         fi
     elif [ -f /etc/lsb-release ] && grep -i 'DISTRIB_ID=Ubuntu' /etc/lsb-release &>/dev/null; then
         # Ubuntu
         export DISTRO='UBUNTU'
 
-        # Ubuntu version number and code name:
-        #   - 18.04: bionic
-        #   - 20.04: focal
-        export DISTRO_VERSION="$(awk -F'=' '/^DISTRIB_RELEASE/ {print $2}' /etc/lsb-release)"
-        export DISTRO_CODENAME="$(awk -F'=' '/^DISTRIB_CODENAME/ {print $2}' /etc/lsb-release)"
-
         # Unsupported releases: 16.x, 17.x, 18.10, 19.x
-        if echo "${DISTRO_VERSION}" | grep -E '^(16|17|18\.10|19\.)' &>/dev/null ; then
+        if echo "${DISTRO_VERSION}" | grep -E '^(16|17|18\.10|19\.|21\.)' &>/dev/null ; then
             export UNSUPPORTED_RELEASE='YES'
-        fi
-
-        export UWSGI_PY2_PLUGIN_NAME='python27'
-        if [ X"${DISTRO_CODENAME}" == X'bionic' ]; then
-            # Ubuntu 18.04
-            export UWSGI_PY3_PLUGIN_NAME='python38'
-        elif [ X"${DISTRO_CODENAME}" == X'focal' ]; then
-            # Ubuntu 20.04: Installed with pip2.
-            export CMD_UWSGI='/usr/local/bin/uwsgi'
-            export UWSGI_PY3_PLUGIN_NAME='python38'
         fi
     elif [ -f /etc/debian_version ]; then
         # Debian
         export DISTRO='DEBIAN'
 
-        # Set distro code name and unsupported releases.
-        if grep -i '^10' /etc/debian_version &>/dev/null; then
-            export DISTRO_VERSION='10'
-            export DISTRO_CODENAME='buster'
-            export UWSGI_PY3_PLUGIN_NAME='python37'
-        elif grep '^9' /etc/debian_version &>/dev/null || \
-            grep -i '^stretch' /etc/debian_version &>/dev/null; then
-            export DISTRO_VERSION='9'
-            export DISTRO_CODENAME='stretch'
-        else
+        if [[ X"${DISTRO_VERSION}" != X'9' ]] && [[ X"${DISTRO_VERSION}" != X'10' ]]; then
             export UNSUPPORTED_RELEASE='YES'
         fi
     else
@@ -322,7 +287,6 @@ elif [ X"${KERNEL_NAME}" == X'FREEBSD' ]; then
     export DIR_RC_SCRIPTS='/usr/local/etc/rc.d'
     export RC_CONF_LOCAL='/etc/rc.conf.local'
 
-    export CMD_PYTHON2='/usr/local/bin/python2'
     export CMD_PYTHON3='/usr/local/bin/python3'
 
     # Unsupported releases: 7, 8.
@@ -346,9 +310,7 @@ elif [ X"${KERNEL_NAME}" == X'OPENBSD' ]; then
     export DIR_RC_SCRIPTS='/etc/rc.d'
     export RC_CONF_LOCAL='/etc/rc.conf.local'
     export SHELL_BASH='/usr/local/bin/bash'
-    export CMD_PYTHON2='/usr/local/bin/python2'
     export CMD_PYTHON3='/usr/local/bin/python3'
-    export CMD_PIP2='pip2.7'
     export CMD_PIP3='pip3.7'
 
     # Unsupported release: 6.6 and earlier versions.
@@ -500,14 +462,6 @@ elif [ X"${DISTRO}" == X'DEBIAN' -o X"${DISTRO}" == X'UBUNTU' ]; then
         export SYSLOG_CONF='/etc/rsyslog.d/iredmail.conf'
     fi
 
-    if [ X"${DISTRO_VERSION}" == X'9' ]; then
-        export SYSLOG_POSTROTATE_CMD='/usr/sbin/service rsyslog restart'
-        export UWSGI_PY3_PLUGIN_NAME='python35'
-    else
-        # Debian 10, Ubuntu 18.04
-        export SYSLOG_POSTROTATE_CMD='/usr/lib/rsyslog/rsyslog-rotate'
-    fi
-
     # SSHD log file
     export SSHD_LOGFILE='/var/log/auth.log'
 
@@ -530,6 +484,8 @@ elif [ X"${DISTRO}" == X'DEBIAN' -o X"${DISTRO}" == X'UBUNTU' ]; then
     # Directory used to store SSL/TLS key/cert file.
     export SSL_FILE_DIR="/etc/ssl"
 
+    # `python3` is a symbol link to `python3X`.
+    export UWSGI_PY3_PLUGIN_NAME='python3'
 elif [ X"${DISTRO}" == X'FREEBSD' ]; then
     export USE_SYSTEMD='NO'
     export SYS_GROUP_ROOT='wheel'
@@ -555,7 +511,7 @@ elif [ X"${DISTRO}" == X'FREEBSD' ]; then
     fi
 
     # Port directory
-    export PORT_WRKDIRPREFIX='/usr/ports'
+    export PORT_WORKDIRPREFIX='/usr/ports'
 
     # Syslog (newsyslog)
     export USE_RSYSLOG='NO'
@@ -727,5 +683,3 @@ export UBUNTU_MIRROR_SITE="${UBUNTU_MIRROR_SITE:=}"
 # pip mirror site. Use `pypi.org` if not set.
 export PIP_MIRROR_SITE="${PIP_MIRROR_SITE:=}"
 export PIP_TRUSTED_HOST="${PIP_TRUSTED_HOST:=}"
-# URL to download `get-pip.py`, used to install `pip2`.
-export URL_GET_PIP_PY="${URL_GET_PIP_PY:=https://bootstrap.pypa.io/get-pip.py}"

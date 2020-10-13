@@ -358,9 +358,14 @@ service_control()
 
 generate_password_hash()
 {
-    scheme="${1}"
-    password="${2}"
-    ${CMD_PYTHON2} ${TOOLS_DIR}/generate_password_hash.py ${scheme} ${password}
+    _scheme="${1}"
+    _password="${2}"
+
+    if [ X"${_scheme}" == X'BCRYPT' ]; then
+        _scheme='BLF-CRYPT'
+    fi
+
+    doveadm pw -s "${_scheme}" -p "${_password}"
 }
 
 # Create SSL certs/private files.
@@ -437,7 +442,7 @@ add_postfix_alias()
 install_pkg_rhel()
 {
     ECHO_INFO "Installing package(s): $@"
-    ${YUM} -y --disablerepo=rpmforge,ius,remi,atrpms install $@
+    ${YUM} -y --disablerepo=rpmforge,ius,remi,remi-php74,remi-safe,atrpms install $@
 
     # Leave a mark if package installation failed.
     if [ X"$?" != X'0' ]; then

@@ -192,7 +192,7 @@ EOF
                 perl -pi -e 's#(^plugins.*)python,(.*)#${1}$ENV{UWSGI_PY3_PLUGIN_NAME},${2}#g' ${MLMMJADMIN_ROOT_DIR_SYMBOL_LINK}/rc_scripts/uwsgi/rhel.ini
             elif [ X"${DISTRO_VERSION}" == X'8' ]; then
                 # Fix path to uwsgi.
-                perl -pi -e 's#/usr/sbin/uwsgi#$ENV{CMD_UWSGI_PY3}#g' ${MLMMJADMIN_ROOT_DIR_SYMBOL_LINK}/rc_scripts/systemd/rhel.service
+                perl -pi -e 's#/usr/sbin/uwsgi#$ENV{CMD_UWSGI}#g' ${MLMMJADMIN_ROOT_DIR_SYMBOL_LINK}/rc_scripts/systemd/rhel.service
                 # Disable plugins. They're all builtin.
                 perl -pi -e 's/^(plugins.*)/#${1}/g' ${MLMMJADMIN_ROOT_DIR_SYMBOL_LINK}/rc_scripts/uwsgi/rhel.ini
             fi
@@ -208,11 +208,7 @@ EOF
 
         systemctl daemon-reload >> ${INSTALL_LOG} 2>&1
     else
-        if [ X"${DISTRO}" == X'RHEL' ]; then
-            cp ${MLMMJADMIN_ROOT_DIR_SYMBOL_LINK}/rc_scripts/${MLMMJADMIN_RC_SCRIPT_NAME}.rhel ${MLMMJADMIN_RC_SCRIPT_PATH} >> ${INSTALL_LOG} 2>&1
-        elif [ X"${DISTRO}" == X'DEBIAN' -o X"${DISTRO}" == X'UBUNTU' ]; then
-            cp ${MLMMJADMIN_ROOT_DIR_SYMBOL_LINK}/rc_scripts/${MLMMJADMIN_RC_SCRIPT_NAME}.debian ${MLMMJADMIN_RC_SCRIPT_PATH} >> ${INSTALL_LOG} 2>&1
-        elif [ X"${DISTRO}" == X'FREEBSD' ]; then
+        if [ X"${DISTRO}" == X'FREEBSD' ]; then
             cp ${MLMMJADMIN_ROOT_DIR_SYMBOL_LINK}/rc_scripts/${MLMMJADMIN_RC_SCRIPT_NAME}.freebsd ${MLMMJADMIN_RC_SCRIPT_PATH} >> ${INSTALL_LOG} 2>&1
             service_control enable 'mlmmjadmin_enable' 'YES' >> ${INSTALL_LOG} 2>&1
         elif [ X"${DISTRO}" == X'OPENBSD' ]; then
@@ -222,7 +218,7 @@ EOF
         fi
     fi
 
-    ECHO_DEBUG "Make mlmmjadmin starting after system startup."
+    ECHO_DEBUG "Enable mlmmjadmin service."
     service_control enable ${MLMMJADMIN_RC_SCRIPT_NAME} >> ${INSTALL_LOG} 2>&1
     export ENABLED_SERVICES="${ENABLED_SERVICES} ${MLMMJADMIN_RC_SCRIPT_NAME}"
 

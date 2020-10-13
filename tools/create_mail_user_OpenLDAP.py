@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # encoding: utf-8
 
 # Author: Zhang Huangbin <zhb _at_ iredmail.org>
@@ -14,7 +14,7 @@
 # Put your user list in a csv format file, e.g. users.csv, and then
 # import users listed in the file:
 #
-#   $ python2 create_mail_user_OpenLDAP.py users.csv
+#   $ python3 create_mail_user_OpenLDAP.py users.csv
 #
 # ------------------------------------------------------------------
 
@@ -63,14 +63,13 @@ import sys
 import time
 import datetime
 from subprocess import Popen, PIPE
-from base64 import b64encode
+from typing import List, Dict
 import re
 
 try:
-    #import ldap
     import ldif
 except ImportError:
-    print '''
+    print("""
     Error: You don't have python-ldap installed, Please install it first.
 
     You can install it like this:
@@ -82,12 +81,12 @@ except ImportError:
     - On Debian & Ubuntu:
 
         $ sudo apt install python-ldap
-    '''
+    """)
     sys.exit()
 
 
 def usage():
-    print '''
+    print("""
 CSV file format:
 
     domain name, username, password, [common name], [quota_in_bytes], [groups]
@@ -113,8 +112,61 @@ Note:
               appended automaticly.
             * Multiple groups must be seperated by colon.
     - Leading and trailing Space will be ignored.
-'''
+    """)
 
+
+def __str2bytes(s) -> bytes:
+    """Convert `s` from string to bytes."""
+    if isinstance(s, bytes):
+        return s
+    elif isinstance(s, str):
+        return s.encode()
+    elif isinstance(s, (int, float)):
+        return str(s).encode()
+    else:
+        return bytes(s)
+
+def __attr_ldif(attr, value, default=None) -> List:
+    """Generate a list of LDIF data with given attribute name and value.
+    Returns empty list if no valid value.
+
+    Value is properly handled with str/bytes/list/tuple/set types, and
+    converted to list of bytes at the end.
+
+    To generate ldif list with ldap modification like `ldap.MOD_REPLACE`,
+    please use function `mod_replace()` instead.
+    """
+    _ldif = []
+    v = value or default
+    if v:
+        if isinstance(value, (list, tuple, set)):
+            lst = []
+            for i in v:
+                # Avoid duplicate element.
+                if i in lst:
+                    continue
+
+                if isinstance(i, bytes):
+                    lst.append(i)
+                else:
+                    lst.append(__str2bytes(i))
+
+            _ldif = [(attr, lst)]
+        else:
+            _ldif = [(attr, [__str2bytes(v)])]
+
+    return _ldif
+
+
+def __attrs_ldif(kvs: Dict) -> List:
+    lst = []
+    for (k, v) in kvs.items():
+        lst += __attr_ldif(k, v)
+
+    return lst
+
+
+# Return list of modification operation.
 def mail_to_user_dn(mail):
     """Convert email address to ldap dn of normail mail user."""
     if mail.count('@') != 1:
@@ -129,65 +181,25 @@ def mail_to_user_dn(mail):
     return dn
 
 
-def generate_password_hash(p, pwscheme=None):
-    """Generate password for LDAP mail user and admin."""
-    p = str(p).strip()
-
-    if not pwscheme:
-        pwscheme = DEFAULT_PASSWORD_SCHEME
-
-    # Supports returning multiple passwords.
-    pw_schemes = pwscheme.split('+')
-    pws = []
-
-    for scheme in pw_schemes:
-        if scheme == 'PLAIN':
-            pws.append(p)
-        else:
-            pw = generate_password_with_doveadmpw(scheme, p)
-
-            if scheme in HASHES_WITHOUT_PREFIXED_PASSWORD_SCHEME:
-                pw = pw.lstrip('{' + scheme + '}')
-
-            pws.append(pw)
-
-    return pws
-
-
-def generate_ssha_password(p):
-    p = str(p).strip()
-    salt = os.urandom(8)
-    try:
-        from hashlib import sha1
-        pw = sha1(p)
-    except ImportError:
-        import sha
-        pw = sha.new(p)
-    pw.update(salt)
-    return "{SSHA}" + b64encode(pw.digest() + salt)
-
-
-def generate_password_with_doveadmpw(scheme, plain_password):
+def generate_password_with_doveadmpw(plain_password, scheme=None):
     """Generate password hash with `doveadm pw` command.
     Return SSHA instead if no 'doveadm' command found or other error raised."""
-    # scheme: CRAM-MD5, NTLM
+    if not scheme:
+        scheme = DEFAULT_PASSWORD_SCHEME
+
     scheme = scheme.upper()
     p = str(plain_password).strip()
 
-    try:
-        pp = Popen(['doveadm', 'pw', '-s', scheme, '-p', p],
-                   stdout=PIPE)
-        pw = pp.communicate()[0]
+    pp = Popen(['doveadm', 'pw', '-s', scheme, '-p', p], stdout=PIPE)
+    pw = pp.communicate()[0]
 
-        if scheme in HASHES_WITHOUT_PREFIXED_PASSWORD_SCHEME:
-            pw.lstrip('{' + scheme + '}')
+    if scheme in HASHES_WITHOUT_PREFIXED_PASSWORD_SCHEME:
+        pw.lstrip('{' + scheme + '}')
 
-        # remove '\n'
-        pw = pw.strip()
+    # remove '\n'
+    pw = pw.strip()
 
-        return pw
-    except:
-        return generate_ssha_password(p)
+    return pw
 
 def get_days_of_today():
     """Return number of days since 1970-01-01."""
@@ -240,52 +252,55 @@ def ldif_mailuser(domain, username, passwd, cn, quota, groups=''):
     homeDirectory = STORAGE_BASE_DIRECTORY + '/' + mailMessageStore
     mailMessageStore = STORAGE_NODE + '/' + mailMessageStore
 
-    ldif = [
-        ('objectClass', ['inetOrgPerson', 'mailUser', 'shadowAccount', 'amavisAccount']),
-        ('mail', [mail]),
-        ('userPassword', generate_password_hash(passwd)),
-        ('mailQuota', [quota]),
-        ('cn', [cn]),
-        ('sn', [username]),
-        ('uid', [username]),
-        ('storageBaseDirectory', [STORAGE_BASE]),
-        ('mailMessageStore', [mailMessageStore]),
-        ('homeDirectory', [homeDirectory]),
-        ('accountStatus', ['active']),
-        ('enabledService', ['internal', 'doveadm', 'lib-storage',
-                            'indexer-worker', 'dsync', 'quota-status',
-                            'mail',
-                            'smtp', 'smtpsecured', 'smtptls',
-                            'pop3', 'pop3secured', 'pop3tls',
-                            'imap', 'imapsecured', 'imaptls',
-                            'deliver', 'lda', 'forward', 'senderbcc', 'recipientbcc',
-                            'managesieve', 'managesievesecured',
-                            'sieve', 'sievesecured', 'lmtp', 'sogo',
-                            'shadowaddress',
-                            'displayedInGlobalAddressBook']),
-        ('memberOfGroup', groups),
+    _ldif = __attrs_ldif({
+        'objectClass': ['inetOrgPerson', 'mailUser', 'shadowAccount', 'amavisAccount'],
+        'mail': mail,
+        'userPassword': generate_password_with_doveadmpw(passwd),
+        'mailQuota': quota,
+        'cn': cn,
+        'sn': username,
+        'uid': username,
+        'storageBaseDirectory': STORAGE_BASE,
+        'mailMessageStore': mailMessageStore,
+        'homeDirectory': homeDirectory,
+        'accountStatus': 'active',
+        'enabledService': ['internal', 'doveadm', 'lib-storage',
+                           'indexer-worker', 'dsync', 'quota-status',
+                           'mail',
+                           'smtp', 'smtpsecured', 'smtptls',
+                           'pop3', 'pop3secured', 'pop3tls',
+                           'imap', 'imapsecured', 'imaptls',
+                           'managesieve', 'managesievesecured', 'managesievetls',
+                           'sieve', 'sievesecured', 'sievetls',
+                           'deliver', 'lda', 'forward', 'senderbcc', 'recipientbcc',
+                           'lmtp', 'sogo',
+                           'shadowaddress',
+                           'displayedInGlobalAddressBook'],
+        'memberOfGroup': groups,
         # shadowAccount integration.
-        ('shadowLastChange', [str(get_days_of_today())]),
+        'shadowLastChange': get_days_of_today(),
         # Amavisd integration.
-        ('amavisLocal', ['TRUE'])]
+        'amavisLocal': 'TRUE',
+    })
 
-    return dn, ldif
+    return dn, _ldif
+
 
 if len(sys.argv) != 2 or len(sys.argv) > 2:
-    print """Usage: $ python2 %s users.csv""" % sys.argv[0]
+    print("""Usage: $ python3 %s users.csv""" % sys.argv[0])
     usage()
     sys.exit()
 else:
     CSV = sys.argv[1]
     if not os.path.exists(CSV):
-        print '''Error: file not exist:''', CSV
+        print("Error: file not exist:", CSV)
         sys.exit()
 
 ldif_file = CSV + '.ldif'
 
 # Remove exist LDIF file.
 if os.path.exists(ldif_file):
-    print '''< INFO > Remove exist file:''', ldif_file
+    print("< INFO > Remove exist file:", ldif_file)
     os.remove(ldif_file)
 
 # Read user list.
@@ -293,8 +308,8 @@ userList = open(CSV, 'rb')
 
 # Convert to LDIF format.
 for entry in userList.readlines():
-    entry = entry.rstrip()
-    domain, username, passwd, cn, quota, groups = re.split('\s?,\s?', entry)
+    entry = entry.decode().rstrip()
+    domain, username, passwd, cn, quota, groups = re.split(r'\s?,\s?', entry)
     dn, data = ldif_mailuser(domain, username, passwd, cn, quota, groups)
 
     # Write LDIF data.
@@ -304,12 +319,12 @@ for entry in userList.readlines():
 
 
 ldif_file_path = os.path.abspath(ldif_file)
-print "< INFO > User data are stored in %s, you can verify it before importing it." % ldif_file_path
-print "< INFO > You can import it with below command:"
-print "ldapadd -x -D %s -W -f %s" % (BINDDN, ldif_file_path)
+print("< INFO > User data are stored in %s, you can verify it before importing it." % ldif_file_path)
+print("< INFO > You can import it with below command:")
+print("ldapadd -x -D %s -W -f %s" % (BINDDN, ldif_file_path))
 
 # Prompt to import user data.
-'''
+"""
 answer = raw_input("Would you like to import them now? [y|N]").lower().strip()
 
 if answer == 'y':
@@ -320,4 +335,4 @@ if answer == 'y':
     conn.unbind()
 else:
     pass
-'''
+"""

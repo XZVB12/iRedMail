@@ -73,7 +73,9 @@ export DOVECOT_SYSLOG_FILE_SIEVE="${DOVECOT_LOG_DIR}/sieve.log"
 export DOVECOT_LOGROTATE_FILE="${LOGROTATE_DIR}/dovecot"
 
 if [ X"${DISTRO}" == X'RHEL' ]; then
-    export DOVECOT_VERSION='2.2'
+    if [ X"${DISTRO_VERSION}" == X'7' ]; then
+        export DOVECOT_VERSION='2.2'
+    fi
 elif [ X"${DISTRO}" == X'DEBIAN' -o X"${DISTRO}" == X'UBUNTU' ]; then
     export DOVECOT_DELIVER_BIN='/usr/lib/dovecot/deliver'
 
